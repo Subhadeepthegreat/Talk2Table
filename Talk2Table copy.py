@@ -9,7 +9,8 @@ from functools import lru_cache
 from pathlib import Path
 
 # LangChain & OpenAI
-from langchain.chat_models import ChatOpenAI
+# from langchain.chat_models import ChatOpenAI
+from langchain_openai import ChatOpenAI
 from langchain.schema import SystemMessage, HumanMessage
 from dotenv import load_dotenv
 
