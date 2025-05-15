@@ -263,7 +263,7 @@ def generate_and_validate_sql_query(question: str, db_path: str, max_attempts: i
 st.set_page_config(page_title="Talk2Table", page_icon="📊")
 
 # Replace with your own logo / hero image
-st.image("ChatGPT Image Apr 29, 2025, 01_12_56 PM.png", use_container_width="auto")
+
 
 # tiny CSS tweak
 st.markdown(
@@ -288,6 +288,7 @@ if "last_call_cost" not in st.session_state:
 
 with st.sidebar:
     # ⬇️  add this CSS before or after your metrics
+    st.image("ChatGPT Image Apr 29, 2025, 01_12_56 PM.png", use_container_width="auto")
     st.markdown(
         """
         <style>
