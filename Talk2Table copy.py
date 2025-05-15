@@ -6,6 +6,7 @@ import sqlite3
 import re
 import matplotlib.pyplot as plt
 from functools import lru_cache
+from pathlib import Path
 
 # LangChain & OpenAI
 from langchain.chat_models import ChatOpenAI
@@ -59,24 +60,67 @@ def get_credentials():
 # ------------------------------------------------------
 
 @lru_cache(maxsize=8)
-def get_db_schema(db_path: str) -> dict[str, list[str]]:
-    """Return {table_name: [columns]} mapping for *SQLite* database."""
-    if not os.path.exists(db_path):
+def get_db_schema(db_path: str) -> dict[str, dict]:
+    """
+    Return
+        {
+          table: {
+              "cols":      [col, …],
+              "pk":        [col, …],          # declared PK(s) – maybe empty
+              "uniques":   [col, …],          # UNIQUE indices
+              "candidates":[col, …]           # data-driven uniques
+          }
+        }
+    """
+    if not Path(db_path).exists():
         raise FileNotFoundError(db_path)
 
+    schema = {}
     with sqlite3.connect(db_path) as conn:
-        cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
-        tables = [row[0] for row in cursor.fetchall()]
-        schema: dict[str, list[str]] = {}
-        for t in tables:
-            cols = [row[1] for row in conn.execute(f"PRAGMA table_info({t})")]
-            schema[t] = cols
-        return schema
+        cur = conn.cursor()
+        tables = [t[0] for t in cur.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'")]
+
+        for tbl in tables:
+            # ── declared columns & PKs ──────────────────────────────
+            info = cur.execute(f"PRAGMA table_info({tbl})").fetchall()
+            cols     = [row[1] for row in info]
+            pk_cols  = [row[1] for row in info if row[5]]
+
+            # ── UNIQUE-indexed columns ─────────────────────────────
+            uniq_cols = []
+            for idx_name, _, is_unique, *_ in cur.execute(f"PRAGMA index_list({tbl})"):
+                if is_unique:
+                    idx_cols = cur.execute(f"PRAGMA index_info({idx_name})") \
+                                 .fetchall()
+                    uniq_cols.extend([c[2] for c in idx_cols])
+
+            # ── data-driven candidate keys ─────────────────────────
+            candidates = []
+            row_count  = cur.execute(f"SELECT COUNT(*) FROM {tbl}").fetchone()[0]
+            for c in cols:
+                distinct = cur.execute(
+                    f"SELECT COUNT(DISTINCT {c}) FROM {tbl}").fetchone()[0]
+                if distinct == row_count:
+                    candidates.append(c)
+
+            schema[tbl] = {
+                "cols": cols,
+                "pk": pk_cols,
+                "uniques": list(set(uniq_cols)),      # de-dupe
+                "candidates": candidates
+            }
+    return schema
 
 
-def schema_to_str(schema: dict[str, list[str]]) -> str:
-    """Format schema as `table(col, col, …)` lines suitable for prompt."""
-    lines = [f"{tbl}({', '.join(cols)})" for tbl, cols in schema.items()]
+def schema_to_str(schema: dict) -> str:
+    lines = []
+    for tbl, meta in schema.items():
+        cols = ", ".join(meta["cols"])
+        pk   = ", ".join(meta["pk"])         or "〈none〉"
+        cand = ", ".join(meta["candidates"]) or "〈none〉"
+
+        lines.append(f"{tbl}({cols})  — PK: {pk} | candidate keys: {cand}")
     return "\n".join(lines)
 
 # ------------------------------------------------------
@@ -259,18 +303,34 @@ with col4:
 
 # ------------- SQL mode (multi‑table) -------------
 if st.session_state.mode == "sql":
-    db_path = st.text_input("Enter the SQLite database file path:")
+    sql_tab, upload_tab = st.tabs(["Enter path", "Upload .db"])
+    with sql_tab:
+        db_path = st.text_input("Absolute path inside the *server* container:")
+        
+    with upload_tab:
+        uploaded = st.file_uploader("Upload a SQLite file", type=["db", "sqlite"])
 
+    if uploaded:
+        import tempfile, shutil
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".db")
+        shutil.copyfileobj(uploaded, tmp)   # write bytes to tmp file
+        tmp.close()
+        db_path = tmp.name                  # override whatever was typed
+    
     if db_path:
         try:
             schema_dict = get_db_schema(db_path)
         except Exception as e:
-            st.error(str(e))
+            st.error(f"❌ {e}")
             st.stop()
 
-        with st.expander("📜 Detected schema"):
-            for tbl, cols in schema_dict.items():
-                st.write(f"**{tbl}**: {', '.join(cols)}")
+        with st.expander("📜 Detected schema"):
+            for tbl, meta in schema_dict.items():
+                st.markdown(f"**{tbl}**")
+                st.write("Columns        :", ", ".join(meta['cols']))
+                st.write("Declared PK    :", ", ".join(meta['pk']) or "〈none〉")
+                st.write("Candidate keys :", ", ".join(meta['candidates']) or "〈none〉")
+                st.write("---")
 
         question = st.text_input("Ask a question (multi‑table joins supported):")
 
