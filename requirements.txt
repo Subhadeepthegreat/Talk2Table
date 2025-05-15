@@ -12,3 +12,4 @@ langchain-text-splitters==0.2.2
 langsmith==0.1.99
 numpy==1.26.4
 openai==1.35.15
+python-dotenv==1.0.1
