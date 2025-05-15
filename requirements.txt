@@ -4,9 +4,9 @@ SQLAlchemy==2.0.32
 matplotlib==3.9.2
 matplotlib-inline==0.1.7
 langchain==0.2.13
+langchain-openai==0.0.x
 langchain-community==0.2.12
 langchain-core==0.2.30
-langchain-experimental==0.0.64
 langchain-ibm==0.1.12
 langchain-text-splitters==0.2.2
 langsmith==0.1.99
