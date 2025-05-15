@@ -137,7 +137,7 @@ def llm_complete(system_prompt: str,
                  max_tokens: int = 300) -> str:
 
     get_credentials()
-    llm = ChatOpenAI(model_name=model_name,
+    llm = ChatOpenAI(model=model_name,
                      temperature=temperature,
                      max_tokens=max_tokens)
     response = llm.invoke([
