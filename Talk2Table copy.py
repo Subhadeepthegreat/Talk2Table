@@ -287,6 +287,23 @@ if "last_call_cost" not in st.session_state:
     st.session_state.last_call_cost = 0.0
 
 with st.sidebar:
+    # ⬇️  add this CSS before or after your metrics
+    st.markdown(
+        """
+        <style>
+            /* sidebar metric number */
+            section[data-testid="stSidebar"] div[data-testid="stMetricValue"] > span {
+                font-size: 10px !important;   /* smaller than the default 24 px-ish */
+            }
+            /* sidebar metric label */
+            section[data-testid="stSidebar"] div[data-testid="stMetricLabel"] > div {
+                font-size: 10px !important;   /* tweak as you like */
+            }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
     st.metric("💸 Cost of last call", f"${st.session_state.last_call_cost:,.4f}")
     st.metric("📈 Session total",     f"${st.session_state.session_cost:,.4f}")
 
