@@ -218,7 +218,7 @@ def generate_and_validate_sql_query(question: str, db_path: str, max_attempts: i
 st.set_page_config(page_title="Talk2Table", page_icon="📊")
 
 # Replace with your own logo / hero image
-st.image("D:\\WORK\\PANDASAI\\ChatGPT Image Apr 29, 2025, 01_12_56 PM.png", use_column_width="auto")
+st.image("ChatGPT Image Apr 29, 2025, 01_12_56 PM.png", use_column_width="auto")
 
 # tiny CSS tweak
 st.markdown(
