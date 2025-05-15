@@ -2,9 +2,10 @@ pandas==2.1.4
 SQLAlchemy==2.0.32
 matplotlib==3.9.2
 matplotlib-inline==0.1.7
-langchain==0.2.13
-langchain-openai==0.2.13
-langchain-community==0.2.13
+langchain~=0.3.16
+langchain-core~=0.3.59
+langchain-community~=0.3.16
+langchain-openai~=0.3.0
 numpy==1.26.4
 openai==1.35.15
 python-dotenv==1.0.1
