@@ -374,7 +374,7 @@ if st.session_state.mode == "excel":
             st.write(df.head())
 
         q = st.text_input("🗣️ Chat with dataframe (type 'plot …' for visualisations)")
-        if q and st.button("Run"):
+        if q:
             if "plot" in q.lower():
                 code = generate_plot_code(q, df)
                 with st.expander("Generated plot code"):
