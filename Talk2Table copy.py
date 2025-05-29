@@ -12,6 +12,13 @@ from matplotlib.figure import Figure
 import uuid  
 import matplotlib.pyplot as plt
 # import google_adk # Assuming placeholder
+try:
+    import openai
+except ImportError:
+    openai = None
+
+from dotenv import load_dotenv
+load_dotenv()
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  Constants & Config
@@ -41,10 +48,7 @@ USER_QUERY_LIMIT_RE = re.compile(r"\b(top|limit|show\s*(?:me\s+)?only|first|last
 PANDAS_HEAD_TAIL_RE = re.compile(r"\.(head|tail)\s*\(\s*(\d+)\s*\)")
 PANDAS_FILTER_RE = re.compile(r"\[df\[.*\]\]|\.query\(|\.loc\[|\.iloc\[")
 
-try:
-    import openai
-except ImportError:
-    openai = None
+
 
 DB_PATH = "conversations_1.db" 
 CREATE_SESSIONS_SQL = "CREATE TABLE IF NOT EXISTS sessions (session_id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT DEFAULT 'Untitled', data_type TEXT DEFAULT 'Mixed', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);"
