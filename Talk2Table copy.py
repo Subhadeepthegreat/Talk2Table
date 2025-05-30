@@ -12,6 +12,11 @@ from matplotlib.figure import Figure
 import uuid  
 import matplotlib.pyplot as plt
 # import google_adk # Assuming placeholder
+from dotenv import load_dotenv
+import os
+
+# Load environment variables from the .env file (if present)
+load_dotenv()
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  Constants & Config
