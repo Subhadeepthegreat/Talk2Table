@@ -50,7 +50,7 @@ PANDAS_FILTER_RE = re.compile(r"\[df\[.*\]\]|\.query\(|\.loc\[|\.iloc\[")
 
 
 
-DB_PATH = "conversations_1.db" 
+DB_PATH = "conversations_2.db" 
 CREATE_SESSIONS_SQL = "CREATE TABLE IF NOT EXISTS sessions (session_id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT DEFAULT 'Untitled', data_type TEXT DEFAULT 'Mixed', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);"
 # MODIFIED: Added agent_type column
 CREATE_MESSAGES_SQL = """
