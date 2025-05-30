@@ -13,24 +13,6 @@ import uuid
 import matplotlib.pyplot as plt
 # import google_adk # Assuming placeholder
 
-try:
-    from libsql import create_client_sync
-except ImportError:
-    Client, Transaction, ResultSet, LibsqlError = None, None, None, None, None # type: ignore
-    print("WARNING: libsql_client not installed. Please install it: pip install libsql-client")
-
-# Turso configuration - loaded from .env via os.getenv()
-TURSO_DB_URL = os.getenv("TURSO_DATABASE_URL") # Default to local file if not in .env
-TURSO_AUTH_TOKEN = os.getenv("TURSO_AUTH_TOKEN")
-
-try:
-    import openai
-except ImportError:
-    openai = None
-
-from dotenv import load_dotenv
-load_dotenv()
-
 # ─────────────────────────────────────────────────────────────────────────────
 #  Constants & Config
 # ─────────────────────────────────────────────────────────────────────────────
@@ -59,9 +41,12 @@ USER_QUERY_LIMIT_RE = re.compile(r"\b(top|limit|show\s*(?:me\s+)?only|first|last
 PANDAS_HEAD_TAIL_RE = re.compile(r"\.(head|tail)\s*\(\s*(\d+)\s*\)")
 PANDAS_FILTER_RE = re.compile(r"\[df\[.*\]\]|\.query\(|\.loc\[|\.iloc\[")
 
+try:
+    import openai
+except ImportError:
+    openai = None
 
-
-DB_PATH = "conversations_2.db" 
+DB_PATH = "conversations_1.db" 
 CREATE_SESSIONS_SQL = "CREATE TABLE IF NOT EXISTS sessions (session_id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT DEFAULT 'Untitled', data_type TEXT DEFAULT 'Mixed', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);"
 # MODIFIED: Added agent_type column
 CREATE_MESSAGES_SQL = """
@@ -109,288 +94,95 @@ else:
             return lambda *args, **kwargs: None 
     st = MockStreamlitModule() # type: ignore
     ss = st.session_state # type: ignore
-    
-_CLIENT_CACHE: Client | None = None
-def get_turso_client() -> Client | None:
-    global _CLIENT_CACHE
-    if _CLIENT_CACHE:
-        return _CLIENT_CACHE
 
-    url   = os.getenv("TURSO_DATABASE_URL", "").strip()
-    token = os.getenv("TURSO_AUTH_TOKEN", "").strip()
+def init_db() -> None: 
+    with sqlite3.connect(DB_PATH) as conn: conn.execute(CREATE_SESSIONS_SQL); conn.execute(CREATE_MESSAGES_SQL)
 
-    VALID = ("libsql://", "https://", "file:")
-    if not any(url.startswith(s) for s in VALID):
-        st.error("TURSO_DATABASE_URL must start with libsql://, https:// or file:")
-        return None
-
-    try:
-        _CLIENT_CACHE = create_client_sync(url, auth_token=token or None)   # ➋ pass token
-        _CLIENT_CACHE.execute("SELECT 1")           # warm-up / early failure
-        return _CLIENT_CACHE
-    except Exception as e:
-        st.error(f"Turso connection failed: {e}")
-        return None
-
-
-
-def init_db() -> None:
-    """Initializes the database schema in Turso."""
-    client = get_turso_client()
-    if not client:
-        return
-    try:
-        with client.transaction() as tx: # type: ignore
-            tx.execute(CREATE_SESSIONS_SQL)
-            tx.execute(CREATE_MESSAGES_SQL)
-        print("Database schema initialized/verified in Turso.", flush=True)
-    except LibsqlError as e: # type: ignore
-        err_msg = f"Turso DB Error during schema initialization: {e}"
-        if st and hasattr(st, 'error'): st.error(err_msg)
-        else: print(f"ERROR: {err_msg}", flush=True)
-    except Exception as e:
-        err_msg = f"An unexpected error occurred during schema initialization: {e}"
-        if st and hasattr(st, 'error'): st.error(err_msg)
-        else: print(f"ERROR: {err_msg}", flush=True)
-
-def create_session(t: str = "Untitled", dt: str = "Mixed") -> int | None:
-    """Creates a new session in the Turso database."""
-    client = get_turso_client()
-    if not client:
-        return None
-    try:
-        rs: ResultSet = client.execute("INSERT INTO sessions(title, data_type) VALUES (?, ?)", [t, dt]) # type: ignore
-        return rs.last_insert_rowid
-    except LibsqlError as e: # type: ignore
-        if st and hasattr(st, 'error'): st.error(f"Turso DB Error creating session: {e}")
-        else: print(f"ERROR: Turso DB Error creating session: {e}", flush=True)
-        return None
-    except Exception as e:
-        if st and hasattr(st, 'error'): st.error(f"An unexpected error occurred creating session: {e}")
-        else: print(f"ERROR: An unexpected error occurred creating session: {e}", flush=True)
-        return None
-
-def update_session_title(session_id: int, title: str) -> None:
-    """Updates the title of a session in the Turso database."""
-    client = get_turso_client()
-    if not client:
-        return
-    try:
-        client.execute("UPDATE sessions SET title = ? WHERE session_id = ?", [title, session_id]) # type: ignore
-    except LibsqlError as e: # type: ignore
-        if st and hasattr(st, 'error'): st.error(f"Turso DB Error updating session title: {e}")
-        else: print(f"ERROR: Turso DB Error updating session title: {e}", flush=True)
-    except Exception as e:
-        if st and hasattr(st, 'error'): st.error(f"An unexpected error occurred updating session title: {e}")
-        else: print(f"ERROR: An unexpected error occurred updating session title: {e}", flush=True)
-
+def create_session(t="Untitled", dt="Mixed"): conn=sqlite3.connect(DB_PATH);c=conn.execute("INSERT INTO sessions(title,data_type)VALUES(?,?)",(t,dt));conn.commit();return c.lastrowid # type: ignore
+def update_session_title(s,t): conn=sqlite3.connect(DB_PATH);conn.execute("UPDATE sessions SET title=? WHERE session_id=?",(t,s));conn.commit()
 
 # MODIFIED: Added agent_type parameter
 def save_message(session_id: int, idx: int, role: str, content: str, code: str | None = None, agent_type: str | None = None) -> None:
-    """Saves a chat message to the Turso database."""
-    client = get_turso_client()
-    if not client:
-        return
-    try:
-        client.execute( # type: ignore
+    """Saves a chat message to the database, now including agent_type."""
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute(
             "INSERT INTO messages(session_id, idx, role, content, code, agent_type) VALUES(?,?,?,?,?,?)",
             (session_id, idx, role, content, code, agent_type),
         )
-    except LibsqlError as e: # type: ignore
-        if st and hasattr(st, 'error'): st.error(f"Turso DB Error saving message: {e}")
-        else: print(f"ERROR: Turso DB Error saving message: {e}", flush=True)
-    except Exception as e:
-        if st and hasattr(st, 'error'): st.error(f"An unexpected error occurred saving message: {e}")
-        else: print(f"ERROR: An unexpected error occurred saving message: {e}", flush=True)
 
 def delete_session(session_id: int) -> None:
-    """Deletes a session and all its associated messages from the Turso database."""
-    client = get_turso_client()
-    if not client:
-        return
+    """Deletes a session and all its associated messages from the database."""
     try:
-        with client.transaction() as tx: # type: ignore
-            tx.execute("DELETE FROM messages WHERE session_id = ?", (session_id,))
-            tx.execute("DELETE FROM sessions WHERE session_id = ?", (session_id,))
-        print(f"Session {session_id} and its messages deleted successfully from Turso.", flush=True)
-    except LibsqlError as e: # type: ignore
-        if st and hasattr(st, 'error'): st.error(f"Turso DB error while deleting session {session_id}: {e}")
-        else: print(f"ERROR: Turso DB error while deleting session {session_id}: {e}", flush=True)
-    except Exception as e:
-        if st and hasattr(st, 'error'): st.error(f"An unexpected error occurred deleting session {session_id}: {e}")
-        else: print(f"ERROR: An unexpected error occurred deleting session {session_id}: {e}", flush=True)
+        with sqlite3.connect(DB_PATH) as conn:
+            cursor = conn.cursor()
+            # Delete associated messages first due to foreign key constraint
+            cursor.execute("DELETE FROM messages WHERE session_id = ?", (session_id,))
+            # Then delete the session itself
+            cursor.execute("DELETE FROM sessions WHERE session_id = ?", (session_id,))
+            conn.commit()
+            # print(f"Session {session_id} and its messages deleted successfully.", flush=True) # Optional: for logging/debugging
+    except sqlite3.Error as e:
+        print(f"Database error while deleting session {session_id}: {e}", flush=True)
+        # Potentially re-raise or handle as appropriate for the application
+        raise
 
 # MODIFIED: Fetches code and agent_type, prepares a more complete message dictionary
 def load_messages(session_id: int) -> list[dict[str, Any]]:
-    """Loads messages for a session from the Turso database."""
-    client = get_turso_client()
-    if not client:
-        return []
-    history = []
-    try:
-        rs: ResultSet = client.execute( # type: ignore
+    """Loads messages for a session, including code and agent_type for assistant messages."""
+    with sqlite3.connect(DB_PATH) as conn:
+        rows = conn.execute(
             "SELECT role, content, code, agent_type FROM messages WHERE session_id = ? ORDER BY idx", (session_id,)
-        )
-        for r_idx, row in enumerate(rs.rows):
-            msg = {
-                "role": row[0],
-                "content": row[1],
-                "code": row[2],
-                "agent": row[3],
-                "dataframe": None,
-                "figure": None,
-                "verification_notes": [],
-                "executed": False,
-                "session_id": str(session_id),
-            }
-            history.append(msg)
-    except LibsqlError as e: # type: ignore
-        if st and hasattr(st, 'error'): st.error(f"Turso DB Error loading messages: {e}")
-        else: print(f"ERROR: Turso DB Error loading messages: {e}", flush=True)
-    except Exception as e:
-        if st and hasattr(st, 'error'): st.error(f"An unexpected error occurred loading messages: {e}")
-        else: print(f"ERROR: An unexpected error occurred loading messages: {e}", flush=True)
+        ).fetchall()
+    
+    history = []
+    for r_idx, r_val in enumerate(rows): # Use enumerate to get index if needed for unique keys
+        msg = {
+            "role": r_val[0], 
+            "content": r_val[1], 
+            "code": r_val[2], 
+            "agent": r_val[3], # agent_type from DB maps to 'agent' in chat dict
+            "dataframe": None, # Not stored in DB, default to None
+            "figure": None,    # Not stored in DB, default to None
+            "verification_notes": [], # Not stored, default to empty
+            "executed": False, # Historical messages are not auto-executed on load
+            "session_id": str(session_id), # Tag with the DB session ID (string form for consistency with current_session_id)
+            # "key_suffix": f"_hist_{session_id}_{r_idx}" # Example for unique keys if needed
+        }
+        history.append(msg)
     return history
 
-def next_msg_index(session_id: int) -> int:
-    """Gets the next message index for a session from Turso."""
-    client = get_turso_client()
-    if not client:
-        return 0
-    try:
-        rs: ResultSet = client.execute("SELECT COALESCE(MAX(idx), -1) + 1 FROM messages WHERE session_id = ?", (session_id,)) # type: ignore
-        if rs.rows and rs.rows[0] and rs.rows[0][0] is not None:
-            return int(rs.rows[0][0])
-        return 0
-    except LibsqlError as e: # type: ignore
-        if st and hasattr(st, 'error'): st.error(f"Turso DB Error getting next message index: {e}")
-        else: print(f"ERROR: Turso DB Error getting next message index: {e}", flush=True)
-        return 0
-    except Exception as e:
-        if st and hasattr(st, 'error'): st.error(f"An unexpected error occurred getting next message index: {e}")
-        else: print(f"ERROR: An unexpected error occurred getting next message index: {e}", flush=True)
-        return 0
-
-
-def user_msg_count(session_id: int) -> int:
-    """Counts user messages in a session from Turso."""
-    client = get_turso_client()
-    if not client:
-        return 0
-    try:
-        rs: ResultSet = client.execute("SELECT COUNT(*) FROM messages WHERE session_id = ? AND role = 'user'", (session_id,)) # type: ignore
-        if rs.rows and rs.rows[0] and rs.rows[0][0] is not None:
-            return int(rs.rows[0][0])
-        return 0
-    except LibsqlError as e: # type: ignore
-        if st and hasattr(st, 'error'): st.error(f"Turso DB Error counting user messages: {e}")
-        else: print(f"ERROR: Turso DB Error counting user messages: {e}", flush=True)
-        return 0
-    except Exception as e:
-        if st and hasattr(st, 'error'): st.error(f"An unexpected error occurred counting user messages: {e}")
-        else: print(f"ERROR: An unexpected error occurred counting user messages: {e}", flush=True)
-        return 0
-def recent_sessions(limit: int = 20) -> list[tuple]:
-    """Fetches recent sessions from Turso."""
-    client = get_turso_client()
-    if not client:
-        return []
-    try:
-        query = """
-        SELECT s.session_id, s.title, 
-               strftime('%d %b %H:%M', COALESCE((SELECT ts FROM messages m WHERE m.session_id = s.session_id ORDER BY ts DESC LIMIT 1), s.created_at)) AS last_activity_ts 
-        FROM sessions s 
-        ORDER BY last_activity_ts DESC 
-        LIMIT ?
-        """
-        rs: ResultSet = client.execute(query, (limit,)) # type: ignore
-        return rs.rows
-    except LibsqlError as e: # type: ignore
-        if st and hasattr(st, 'error'): st.error(f"Turso DB Error fetching recent sessions: {e}")
-        else: print(f"ERROR: Turso DB Error fetching recent sessions: {e}", flush=True)
-        return []
-    except Exception as e:
-        if st and hasattr(st, 'error'): st.error(f"An unexpected error occurred fetching recent sessions: {e}")
-        else: print(f"ERROR: An unexpected error occurred fetching recent sessions: {e}", flush=True)
-        return []
+def next_msg_index(s): conn=sqlite3.connect(DB_PATH);(idx,)=conn.execute("SELECT COALESCE(MAX(idx),-1)+1 FROM messages WHERE session_id=?",(s,)).fetchone();return int(idx)
+def user_msg_count(s): conn=sqlite3.connect(DB_PATH);(cnt,)=conn.execute("SELECT COUNT(*)FROM messages WHERE session_id=? AND role='user'",(s,)).fetchone();return int(cnt)
+def recent_sessions(l=20): conn=sqlite3.connect(DB_PATH);return conn.execute("SELECT s.session_id,s.title,strftime('%d %b %H:%M',COALESCE((SELECT ts FROM messages m WHERE m.session_id=s.session_id ORDER BY ts DESC LIMIT 1),s.created_at))AS last_activity_ts FROM sessions s ORDER BY last_activity_ts DESC LIMIT ?",(l,)).fetchall() # type: ignore
 
 # Initialize DB first
-if "db_initialized" not in ss: # type: ignore
-    init_db()
-    ss["db_initialized"] = True # type: ignore
+init_db()
 
-# Initialize session state variables
-for k, v in {"chat_history": [], "costs": [], "total_cost": 0.0, "schemas": {}, "tables": {}, "db_paths": {}, "session_id": None, "current_session_id": None}.items():
-    ss.setdefault(k, v) # type: ignore
+# Initialize session state variables if they don't exist - using the global 'ss'
+for k,v in {"chat_history":[],"costs":[],"total_cost":0.0,"schemas":{},"tables":{},"db_paths":{},"session_id":None,"current_session_id":None}.items(): ss.setdefault(k,v) # type: ignore
 
-if ss.get("session_id") is None: # type: ignore
+# Ensure a DB session exists when the app first starts or state is lost
+if ss.get("session_id") is None:  # type: ignore
     new_db_session_id = create_session()
-    if new_db_session_id is not None:
-        ss["session_id"] = new_db_session_id # type: ignore
-        ss["current_session_id"] = str(new_db_session_id) # type: ignore
-        print(f"Initial DB session created in Turso: ID {new_db_session_id}", flush=True)
-    else:
-        if st and hasattr(st, 'error'): st.error("Failed to create initial session in Turso.")
-        else: print("ERROR: Failed to create initial session in Turso.", flush=True)
+    ss["session_id"] = new_db_session_id # type: ignore
+    # Set current_session_id for UI to align with the new DB session initially
+    ss["current_session_id"] = str(new_db_session_id) # type: ignore
+    print(f"Initial DB session created: ID {new_db_session_id}", flush=True)
 
-
+# Load history only if chat_history is empty AND we have a valid session_id
 if not ss.get("chat_history") and ss.get("session_id") is not None: # type: ignore
+    # print(f"Loading messages for initial DB session ID: {ss['session_id']}", flush=True)
     ss["chat_history"] = load_messages(ss["session_id"]) # type: ignore
 
 
-def infer_db_schema_turso(client: Client) -> dict:
-    """Infers schema from a Turso database."""
-    if not client:
-        return {}
-    
-    schema_info = {}
-    try:
-        tables_rs: ResultSet = client.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_litestream_%' AND name NOT LIKE 'libsql_%';") # type: ignore
-        table_names = [row[0] for row in tables_rs.rows if row[0]]
-
-        for table_name in table_names:
-            cols_rs: ResultSet = client.execute(f"PRAGMA table_info({table_name});") # type: ignore
-            columns = [row[1] for row in cols_rs.rows] 
-            pks = [row[1] for row in cols_rs.rows if row[5]] 
-            unique_cols = []
-            try:
-                index_list_rs: ResultSet = client.execute(f"PRAGMA index_list({table_name});") # type: ignore
-                for index_row in index_list_rs.rows:
-                    if index_row[2] == 1: 
-                        index_name = index_row[1]
-                        index_info_rs: ResultSet = client.execute(f"PRAGMA index_info({index_name});") # type: ignore
-                        for index_info_row in index_info_rs.rows:
-                            unique_cols.append(index_info_row[2]) 
-            except Exception as e_idx:
-                print(f"Could not reliably determine unique columns for {table_name} via PRAGMA index_list/info: {e_idx}", flush=True)
-
-            count_rs: ResultSet = client.execute(f"SELECT COUNT(*) FROM {table_name};") # type: ignore
-            row_count = count_rs.rows[0][0] if count_rs.rows and count_rs.rows[0] else 0
-            
-            candidate_uniques = [] # Skipping for performance by default
-
-            schema_info[table_name] = {
-                "cols": columns, "pk": pks, "uniques": list(set(unique_cols)),
-                "candidates": candidate_uniques, "row_count": row_count
-            }
-    except LibsqlError as e: # type: ignore
-        if st and hasattr(st, 'error'): st.error(f"Turso DB Error inferring schema: {e}")
-        else: print(f"ERROR: Turso DB Error inferring schema: {e}", flush=True)
-        return {}
-    except Exception as e:
-        if st and hasattr(st, 'error'): st.error(f"An unexpected error occurred inferring schema: {e}")
-        else: print(f"ERROR: An unexpected error occurred inferring schema: {e}", flush=True)
-        return {}
-    return schema_info
-
-def infer_db_schema(db_identifier: Any = None): 
-    if Client and isinstance(db_identifier, Client): # type: ignore
-        return infer_db_schema_turso(db_identifier)
-    else: 
-        client = get_turso_client()
-        if client:
-            return infer_db_schema_turso(client)
-    return {}
+def infer_db_schema(p): # type: ignore
+    s={};conn=sqlite3.connect(p);cur=conn.cursor();ts=[t[0]for t in cur.execute("SELECT name FROM sqlite_master WHERE type='table'")]; # type: ignore
+    for t in ts:
+        i=cur.execute(f"PRAGMA table_info({t})").fetchall();cs=[r[1]for r in i];pk=[r[1]for r in i if r[5]];uq=[]; # type: ignore
+        for n,_,iu,*_ in cur.execute(f"PRAGMA index_list({t})"): # type: ignore
+            if iu:uq+=[r[2]for r in cur.execute(f"PRAGMA index_info({n})").fetchall()] # type: ignore
+        rc=cur.execute(f"SELECT COUNT(*)FROM {t}").fetchone()[0];ca=[c for c in cs if cur.execute(f"SELECT COUNT(DISTINCT {c})FROM {t}").fetchone()[0]==rc];s[t]={"cols":cs,"pk":pk,"uniques":list(set(uq)),"candidates":ca} # type: ignore
+    return s # type: ignore
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  Multiprocessing Execution Target
