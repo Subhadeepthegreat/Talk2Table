@@ -135,7 +135,7 @@ def get_turso_client() -> Client | None:
         # Auth token is optional for local file URLs like "file:local.db"
         # but typically required for remote Turso URLs (libsql://...).
         # The Client will handle if token is needed based on URL.
-        client = Client(url=TURSO_DB_URL, auth_token=TURSO_AUTH_TOKEN if TURSO_DB_URL.startswith("libsql:") else None)
+        client = Client()
         return client
     except Exception as e:
         err_msg = f"Failed to create Turso client: {e}"
