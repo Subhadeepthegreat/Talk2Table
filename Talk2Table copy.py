@@ -14,9 +14,9 @@ import matplotlib.pyplot as plt
 # import google_adk # Assuming placeholder
 
 try:
-    from libsql_client import Client, Transaction, ResultSet, LibsqlError
+    from libsql_client import Client, Transaction, ResultSet, LibsqlError, create_client_sync
 except ImportError:
-    Client, Transaction, ResultSet, LibsqlError = None, None, None, None # type: ignore
+    Client, Transaction, ResultSet, LibsqlError = None, None, None, None, None # type: ignore
     print("WARNING: libsql_client not installed. Please install it: pip install libsql-client")
 
 # Turso configuration - loaded from .env via os.getenv()
@@ -112,19 +112,20 @@ else:
 
 def get_turso_client() -> Client | None:
     """Creates and returns a Turso client instance using globally defined URL and Token."""
-    if not Client:
+    if not create_client_sync:
         # Use st.error if st is available, otherwise print
         err_msg = "libsql_client is not installed. Cannot connect to Turso."
         if st and hasattr(st, 'error'): st.error(err_msg)
         else: print(f"ERROR: {err_msg}", flush=True)
         return None
         
-    if not TURSO_DB_URL or TURSO_DB_URL == "file:local.db" and not TURSO_DB_URL.startswith("libsql:"):
-        # If TURSO_DB_URL is still the default "file:local.db" and not a proper libsql URL,
-        # it means it wasn't set in .env for a remote DB.
-        # We allow "file:local.db" for local dev without a token.
-        if TURSO_DB_URL == "file:local.db":
-             print("INFO: Using local SQLite file 'local.db' via Turso client.", flush=True)
+    if not TURSO_DB_URL or (not TURSO_DB_URL.startswith("libsql:") and not TURSO_DB_URL.startswith("file:")):
+        # If TURSO_DB_URL is not set or not a valid Turso/file URL,
+        # it means it wasn't set correctly in .env.
+        # We still support "file:" URLs for local development.
+        if TURSO_DB_URL and TURSO_DB_URL.startswith("file:"):
+            print(f"INFO: Using local SQLite file '{TURSO_DB_URL.split(':', 1)[1]}' via Turso client.", flush=True)
+        # else: print("INFO: Attempting to connect to remote Turso DB.", flush=True) # Already handled by "return None" below
         else:
             err_msg = "Turso Database URL (TURSO_DATABASE_URL) is not configured correctly in your .env file."
             if st and hasattr(st, 'error'): st.error(err_msg)
@@ -135,8 +136,8 @@ def get_turso_client() -> Client | None:
         # Auth token is optional for local file URLs like "file:local.db"
         # but typically required for remote Turso URLs (libsql://...).
         # The Client will handle if token is needed based on URL.
-        client = Client(url=TURSO_DB_URL, auth_token=TURSO_AUTH_TOKEN if TURSO_DB_URL.startswith("libsql:") else None)
-        return client
+        client = create_client_sync(TURSO_DB_URL)
+        return client # create_client_sync returns a client object
     except Exception as e:
         err_msg = f"Failed to create Turso client: {e}"
         if st and hasattr(st, 'error'): st.error(err_msg)
