@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 # import google_adk # Assuming placeholder
 
 try:
-    from libsql_client import Client, Transaction, ResultSet, LibsqlError, create_client_sync
+    from libsql import create_client_sync
 except ImportError:
     Client, Transaction, ResultSet, LibsqlError = None, None, None, None, None # type: ignore
     print("WARNING: libsql_client not installed. Please install it: pip install libsql-client")
