@@ -20,8 +20,8 @@ except ImportError:
     print("WARNING: libsql_client not installed. Please install it: pip install libsql-client")
 
 # Turso configuration - loaded from .env via os.getenv()
-TURSO_DB_URL = os.getenv("TURSO_DATABASE_URL", "file:local.db") # Default to local file if not in .env
-TURSO_AUTH_TOKEN = os.getenv("TURSO_AUTH_TOKEN", "")
+TURSO_DB_URL = os.getenv("TURSO_DATABASE_URL") # Default to local file if not in .env
+TURSO_AUTH_TOKEN = os.getenv("TURSO_AUTH_TOKEN")
 
 try:
     import openai
