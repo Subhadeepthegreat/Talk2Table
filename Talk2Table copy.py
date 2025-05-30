@@ -109,39 +109,27 @@ else:
             return lambda *args, **kwargs: None 
     st = MockStreamlitModule() # type: ignore
     ss = st.session_state # type: ignore
-
+    
+_CLIENT_CACHE: Client | None = None
 def get_turso_client() -> Client | None:
-    """Creates and returns a Turso client instance using globally defined URL and Token."""
-    if not create_client_sync:
-        # Use st.error if st is available, otherwise print
-        err_msg = "libsql_client is not installed. Cannot connect to Turso."
-        if st and hasattr(st, 'error'): st.error(err_msg)
-        else: print(f"ERROR: {err_msg}", flush=True)
+    global _CLIENT_CACHE
+    if _CLIENT_CACHE:
+        return _CLIENT_CACHE
+
+    url   = os.getenv("TURSO_DATABASE_URL", "").strip()
+    token = os.getenv("TURSO_AUTH_TOKEN", "").strip()
+
+    VALID = ("libsql://", "https://", "file:")
+    if not any(url.startswith(s) for s in VALID):
+        st.error("TURSO_DATABASE_URL must start with libsql://, https:// or file:")
         return None
-        
-    if not TURSO_DB_URL or (not TURSO_DB_URL.startswith("libsql:") and not TURSO_DB_URL.startswith("file:")):
-        # If TURSO_DB_URL is not set or not a valid Turso/file URL,
-        # it means it wasn't set correctly in .env.
-        # We still support "file:" URLs for local development.
-        if TURSO_DB_URL and TURSO_DB_URL.startswith("file:"):
-            print(f"INFO: Using local SQLite file '{TURSO_DB_URL.split(':', 1)[1]}' via Turso client.", flush=True)
-        # else: print("INFO: Attempting to connect to remote Turso DB.", flush=True) # Already handled by "return None" below
-        else:
-            err_msg = "Turso Database URL (TURSO_DATABASE_URL) is not configured correctly in your .env file."
-            if st and hasattr(st, 'error'): st.error(err_msg)
-            else: print(f"ERROR: {err_msg}", flush=True)
-            return None
 
     try:
-        # Auth token is optional for local file URLs like "file:local.db"
-        # but typically required for remote Turso URLs (libsql://...).
-        # The Client will handle if token is needed based on URL.
-        client = create_client_sync(TURSO_DB_URL,auth_token=TURSO_AUTH_TOKEN)
-        return client # create_client_sync returns a client object
+        _CLIENT_CACHE = create_client_sync(url, auth_token=token or None)   # ➋ pass token
+        _CLIENT_CACHE.execute("SELECT 1")           # warm-up / early failure
+        return _CLIENT_CACHE
     except Exception as e:
-        err_msg = f"Failed to create Turso client: {e}"
-        if st and hasattr(st, 'error'): st.error(err_msg)
-        else: print(f"ERROR: {err_msg}", flush=True)
+        st.error(f"Turso connection failed: {e}")
         return None
 
 
