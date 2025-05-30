@@ -136,7 +136,7 @@ def get_turso_client() -> Client | None:
         # Auth token is optional for local file URLs like "file:local.db"
         # but typically required for remote Turso URLs (libsql://...).
         # The Client will handle if token is needed based on URL.
-        client = create_client_sync(TURSO_DB_URL)
+        client = create_client_sync(TURSO_DB_URL,auth_token=TURSO_AUTH_TOKEN)
         return client # create_client_sync returns a client object
     except Exception as e:
         err_msg = f"Failed to create Turso client: {e}"
