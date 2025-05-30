@@ -12,6 +12,17 @@ from matplotlib.figure import Figure
 import uuid  
 import matplotlib.pyplot as plt
 # import google_adk # Assuming placeholder
+
+try:
+    from libsql_client import Client, Transaction, ResultSet, LibsqlError
+except ImportError:
+    Client, Transaction, ResultSet, LibsqlError = None, None, None, None # type: ignore
+    print("WARNING: libsql_client not installed. Please install it: pip install libsql-client")
+
+# Turso configuration - loaded from .env via os.getenv()
+TURSO_DB_URL = os.getenv("TURSO_DATABASE_URL", "file:local.db") # Default to local file if not in .env
+TURSO_AUTH_TOKEN = os.getenv("TURSO_AUTH_TOKEN", "")
+
 try:
     import openai
 except ImportError:
