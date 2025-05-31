@@ -12,11 +12,16 @@ from matplotlib.figure import Figure
 import uuid  
 import matplotlib.pyplot as plt
 # import google_adk # Assuming placeholder
+from sqlalchemy import create_engine, text
 from dotenv import load_dotenv
 import os
 
 # Load environment variables from the .env file (if present)
 load_dotenv()
+
+DB_URL = os.getenv("SUPABASE_DB_URL")                    # <- added
+engine = create_engine(DB_URL, pool_pre_ping=True)       # <- one global pool
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  Constants & Config
@@ -51,20 +56,44 @@ try:
 except ImportError:
     openai = None
 
-DB_PATH = "conversations_1.db" 
-CREATE_SESSIONS_SQL = "CREATE TABLE IF NOT EXISTS sessions (session_id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT DEFAULT 'Untitled', data_type TEXT DEFAULT 'Mixed', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);"
-# MODIFIED: Added agent_type column
+# DB_PATH = "conversations_1.db" 
+# CREATE_SESSIONS_SQL = "CREATE TABLE IF NOT EXISTS sessions (session_id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT DEFAULT 'Untitled', data_type TEXT DEFAULT 'Mixed', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);"
+# # MODIFIED: Added agent_type column
+# CREATE_MESSAGES_SQL = """
+# CREATE TABLE IF NOT EXISTS messages (
+#     id INTEGER PRIMARY KEY AUTOINCREMENT, 
+#     session_id INTEGER NOT NULL, 
+#     idx INTEGER NOT NULL, 
+#     role TEXT NOT NULL CHECK(role IN ('user','assistant')), 
+#     content TEXT, 
+#     code TEXT, 
+#     agent_type TEXT, 
+#     ts TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
+#     FOREIGN KEY (session_id) REFERENCES sessions(session_id)
+# );
+# """
+
+
+
+
+CREATE_SESSIONS_SQL = """ 
+create table if not exists sessions (
+    session_id  serial primary key,
+    title       text    default 'Untitled',
+    data_type   text    default 'Mixed',
+    created_at  timestamp default current_timestamp
+);
+"""
 CREATE_MESSAGES_SQL = """
-CREATE TABLE IF NOT EXISTS messages (
-    id INTEGER PRIMARY KEY AUTOINCREMENT, 
-    session_id INTEGER NOT NULL, 
-    idx INTEGER NOT NULL, 
-    role TEXT NOT NULL CHECK(role IN ('user','assistant')), 
-    content TEXT, 
-    code TEXT, 
-    agent_type TEXT, 
-    ts TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
-    FOREIGN KEY (session_id) REFERENCES sessions(session_id)
+create table if not exists messages (
+    id          serial primary key,
+    session_id  int     references sessions(session_id) on delete cascade,
+    idx         int     not null,
+    role        text    not null check (role in ('user','assistant')),
+    content     text,
+    code        text,
+    agent_type  text,
+    ts          timestamp default current_timestamp
 );
 """
 
@@ -100,65 +129,144 @@ else:
     st = MockStreamlitModule() # type: ignore
     ss = st.session_state # type: ignore
 
-def init_db() -> None: 
-    with sqlite3.connect(DB_PATH) as conn: conn.execute(CREATE_SESSIONS_SQL); conn.execute(CREATE_MESSAGES_SQL)
+# def init_db() -> None: 
+#     with sqlite3.connect(DB_PATH) as conn: conn.execute(CREATE_SESSIONS_SQL); conn.execute(CREATE_MESSAGES_SQL)
 
-def create_session(t="Untitled", dt="Mixed"): conn=sqlite3.connect(DB_PATH);c=conn.execute("INSERT INTO sessions(title,data_type)VALUES(?,?)",(t,dt));conn.commit();return c.lastrowid # type: ignore
-def update_session_title(s,t): conn=sqlite3.connect(DB_PATH);conn.execute("UPDATE sessions SET title=? WHERE session_id=?",(t,s));conn.commit()
+# def create_session(t="Untitled", dt="Mixed"): conn=sqlite3.connect(DB_PATH);c=conn.execute("INSERT INTO sessions(title,data_type)VALUES(?,?)",(t,dt));conn.commit();return c.lastrowid # type: ignore
+# def update_session_title(s,t): conn=sqlite3.connect(DB_PATH);conn.execute("UPDATE sessions SET title=? WHERE session_id=?",(t,s));conn.commit()
 
-# MODIFIED: Added agent_type parameter
-def save_message(session_id: int, idx: int, role: str, content: str, code: str | None = None, agent_type: str | None = None) -> None:
-    """Saves a chat message to the database, now including agent_type."""
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.execute(
-            "INSERT INTO messages(session_id, idx, role, content, code, agent_type) VALUES(?,?,?,?,?,?)",
-            (session_id, idx, role, content, code, agent_type),
-        )
+# # MODIFIED: Added agent_type parameter
+# def save_message(session_id: int, idx: int, role: str, content: str, code: str | None = None, agent_type: str | None = None) -> None:
+#     """Saves a chat message to the database, now including agent_type."""
+#     with sqlite3.connect(DB_PATH) as conn:
+#         conn.execute(
+#             "INSERT INTO messages(session_id, idx, role, content, code, agent_type) VALUES(?,?,?,?,?,?)",
+#             (session_id, idx, role, content, code, agent_type),
+#         )
+
+# def delete_session(session_id: int) -> None:
+#     """Deletes a session and all its associated messages from the database."""
+#     try:
+#         with sqlite3.connect(DB_PATH) as conn:
+#             cursor = conn.cursor()
+#             # Delete associated messages first due to foreign key constraint
+#             cursor.execute("DELETE FROM messages WHERE session_id = ?", (session_id,))
+#             # Then delete the session itself
+#             cursor.execute("DELETE FROM sessions WHERE session_id = ?", (session_id,))
+#             conn.commit()
+#             # print(f"Session {session_id} and its messages deleted successfully.", flush=True) # Optional: for logging/debugging
+#     except sqlite3.Error as e:
+#         print(f"Database error while deleting session {session_id}: {e}", flush=True)
+#         # Potentially re-raise or handle as appropriate for the application
+#         raise
+
+# # MODIFIED: Fetches code and agent_type, prepares a more complete message dictionary
+# def load_messages(session_id: int) -> list[dict[str, Any]]:
+#     """Loads messages for a session, including code and agent_type for assistant messages."""
+#     with sqlite3.connect(DB_PATH) as conn:
+#         rows = conn.execute(
+#             "SELECT role, content, code, agent_type FROM messages WHERE session_id = ? ORDER BY idx", (session_id,)
+#         ).fetchall()
+    
+#     history = []
+#     for r_idx, r_val in enumerate(rows): # Use enumerate to get index if needed for unique keys
+#         msg = {
+#             "role": r_val[0], 
+#             "content": r_val[1], 
+#             "code": r_val[2], 
+#             "agent": r_val[3], # agent_type from DB maps to 'agent' in chat dict
+#             "dataframe": None, # Not stored in DB, default to None
+#             "figure": None,    # Not stored in DB, default to None
+#             "verification_notes": [], # Not stored, default to empty
+#             "executed": False, # Historical messages are not auto-executed on load
+#             "session_id": str(session_id), # Tag with the DB session ID (string form for consistency with current_session_id)
+#             # "key_suffix": f"_hist_{session_id}_{r_idx}" # Example for unique keys if needed
+#         }
+#         history.append(msg)
+#     return history
+
+# def next_msg_index(s): conn=sqlite3.connect(DB_PATH);(idx,)=conn.execute("SELECT COALESCE(MAX(idx),-1)+1 FROM messages WHERE session_id=?",(s,)).fetchone();return int(idx)
+# def user_msg_count(s): conn=sqlite3.connect(DB_PATH);(cnt,)=conn.execute("SELECT COUNT(*)FROM messages WHERE session_id=? AND role='user'",(s,)).fetchone();return int(cnt)
+# def recent_sessions(l=20): conn=sqlite3.connect(DB_PATH);return conn.execute("SELECT s.session_id,s.title,strftime('%d %b %H:%M',COALESCE((SELECT ts FROM messages m WHERE m.session_id=s.session_id ORDER BY ts DESC LIMIT 1),s.created_at))AS last_activity_ts FROM sessions s ORDER BY last_activity_ts DESC LIMIT ?",(l,)).fetchall() # type: ignore
+
+def init_db() -> None:
+    with engine.begin() as conn:          # autocommit block
+        conn.execute(text(CREATE_SESSIONS_SQL))
+        conn.execute(text(CREATE_MESSAGES_SQL))
+
+def create_session(t="Untitled", dt="Mixed") -> int:
+    stmt = text("insert into sessions(title,data_type) "
+                "values (:t,:dt) returning session_id")
+    with engine.begin() as conn:
+        return conn.execute(stmt, {"t": t, "dt": dt}).scalar_one()
+
+def update_session_title(s: int, t: str) -> None:
+    with engine.begin() as conn:
+        conn.execute(text(
+            "update sessions set title = :t where session_id = :s"),
+            {"t": t, "s": s})
+
+def save_message(session_id: int, idx: int, role: str,
+                 content: str, code: str | None = None,
+                 agent_type: str | None = None) -> None:
+    with engine.begin() as conn:
+        conn.execute(text("""
+            insert into messages
+            (session_id, idx, role, content, code, agent_type)
+            values (:sid, :idx, :role, :content, :code, :agent)
+        """), {"sid": session_id, "idx": idx, "role": role,
+               "content": content, "code": code, "agent": agent_type})
 
 def delete_session(session_id: int) -> None:
-    """Deletes a session and all its associated messages from the database."""
-    try:
-        with sqlite3.connect(DB_PATH) as conn:
-            cursor = conn.cursor()
-            # Delete associated messages first due to foreign key constraint
-            cursor.execute("DELETE FROM messages WHERE session_id = ?", (session_id,))
-            # Then delete the session itself
-            cursor.execute("DELETE FROM sessions WHERE session_id = ?", (session_id,))
-            conn.commit()
-            # print(f"Session {session_id} and its messages deleted successfully.", flush=True) # Optional: for logging/debugging
-    except sqlite3.Error as e:
-        print(f"Database error while deleting session {session_id}: {e}", flush=True)
-        # Potentially re-raise or handle as appropriate for the application
-        raise
+    with engine.begin() as conn:
+        conn.execute(text("delete from sessions where session_id = :sid"),
+                     {"sid": session_id})
 
-# MODIFIED: Fetches code and agent_type, prepares a more complete message dictionary
-def load_messages(session_id: int) -> list[dict[str, Any]]:
-    """Loads messages for a session, including code and agent_type for assistant messages."""
-    with sqlite3.connect(DB_PATH) as conn:
-        rows = conn.execute(
-            "SELECT role, content, code, agent_type FROM messages WHERE session_id = ? ORDER BY idx", (session_id,)
-        ).fetchall()
-    
-    history = []
-    for r_idx, r_val in enumerate(rows): # Use enumerate to get index if needed for unique keys
-        msg = {
-            "role": r_val[0], 
-            "content": r_val[1], 
-            "code": r_val[2], 
-            "agent": r_val[3], # agent_type from DB maps to 'agent' in chat dict
-            "dataframe": None, # Not stored in DB, default to None
-            "figure": None,    # Not stored in DB, default to None
-            "verification_notes": [], # Not stored, default to empty
-            "executed": False, # Historical messages are not auto-executed on load
-            "session_id": str(session_id), # Tag with the DB session ID (string form for consistency with current_session_id)
-            # "key_suffix": f"_hist_{session_id}_{r_idx}" # Example for unique keys if needed
-        }
-        history.append(msg)
+def load_messages(session_id: int) -> list[dict]:
+    q = text("""select role, content, code, agent_type
+                from messages
+                where session_id = :sid
+                order by idx""")
+    with engine.connect() as conn:
+        rows = conn.execute(q, {"sid": session_id}).fetchall()
+
+    history: list[dict] = []
+    for r_idx, (role, content, code, agent) in enumerate(rows):
+        history.append({
+            "role": role, "content": content, "code": code, "agent": agent,
+            "dataframe": None, "figure": None, "verification_notes": [],
+            "executed": False, "session_id": str(session_id)
+        })
     return history
 
-def next_msg_index(s): conn=sqlite3.connect(DB_PATH);(idx,)=conn.execute("SELECT COALESCE(MAX(idx),-1)+1 FROM messages WHERE session_id=?",(s,)).fetchone();return int(idx)
-def user_msg_count(s): conn=sqlite3.connect(DB_PATH);(cnt,)=conn.execute("SELECT COUNT(*)FROM messages WHERE session_id=? AND role='user'",(s,)).fetchone();return int(cnt)
-def recent_sessions(l=20): conn=sqlite3.connect(DB_PATH);return conn.execute("SELECT s.session_id,s.title,strftime('%d %b %H:%M',COALESCE((SELECT ts FROM messages m WHERE m.session_id=s.session_id ORDER BY ts DESC LIMIT 1),s.created_at))AS last_activity_ts FROM sessions s ORDER BY last_activity_ts DESC LIMIT ?",(l,)).fetchall() # type: ignore
+def next_msg_index(s: int) -> int:
+    q = text("select coalesce(max(idx), -1) + 1 from messages "
+             "where session_id = :sid")
+    with engine.connect() as conn:
+        return conn.execute(q, {"sid": s}).scalar_one()
+
+def user_msg_count(s: int) -> int:
+    q = text("select count(*) from messages "
+             "where session_id = :sid and role = 'user'")
+    with engine.connect() as conn:
+        return conn.execute(q, {"sid": s}).scalar_one()
+
+def recent_sessions(l: int = 20):
+    q = text("""
+        select s.session_id,
+               s.title,
+               to_char(coalesce(
+                 (select max(ts) from messages m
+                  where m.session_id = s.session_id),
+                 s.created_at),
+               'DD Mon HH24:MI') as last_activity_ts
+        from sessions s
+        order by last_activity_ts desc
+        limit :lim
+    """)
+    with engine.connect() as conn:
+        return conn.execute(q, {"lim": l}).fetchall()
+
 
 # Initialize DB first
 init_db()
@@ -271,9 +379,9 @@ class InvalidPandasOutputError(ValueError):
 # ─────────────────────────────────────────────────────────────────────────────
 #  Custom Exceptions
 # ─────────────────────────────────────────────────────────────────────────────
-class InvalidPandasOutputError(ValueError):
-    """Custom exception for when Pandas code does not return a DataFrame or Series."""
-    pass
+# class InvalidPandasOutputError(ValueError):
+#     """Custom exception for when Pandas code does not return a DataFrame or Series."""
+#     pass
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  ADK Agent Base Class & Subclasses
@@ -285,6 +393,7 @@ def infer_excel_schema(b,f):
     dfs[f"{f}:{sh}"]=df; # type: ignore
     s[sh]={"cols":df.columns.tolist(),"pk":[],"uniques":[],"candidates":[c for c in df.columns if df[c].is_unique]}; # type: ignore
     return s,dfs # type: ignore
+
 def infer_csv_schema(b,f):
     df=pd.read_csv(io.BytesIO(b)); # type: ignore
     return{"File":{"cols":df.columns.tolist(),"pk":[],"uniques":[],"candidates":[c for c in df.columns if df[c].is_unique]}},df # type: ignore
