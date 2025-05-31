@@ -112,3 +112,6 @@ yarl==1.9.4
 google-adk
 zipp==3.20.0
 openpyxl
+psycopg==3.2.9
+psycopg-binary==3.2.9
+psycopg2==2.9.10
