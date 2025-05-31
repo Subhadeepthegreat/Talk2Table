@@ -113,3 +113,4 @@ google-adk
 zipp==3.20.0
 openpyxl
 psycopg2-binary==2.9.10
+psycopg-binary==3.2.9
