@@ -13,6 +13,7 @@ import uuid
 import matplotlib.pyplot as plt
 # import google_adk # Assuming placeholder
 from sqlalchemy import create_engine, text
+from sqlalchemy.engine import URL
 from dotenv import load_dotenv
 import os
 
