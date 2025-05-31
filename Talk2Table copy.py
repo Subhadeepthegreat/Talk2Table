@@ -19,8 +19,21 @@ import os
 # Load environment variables from the .env file (if present)
 load_dotenv()
 
-DB_URL = os.getenv("SUPABASE_DB_URL")                    # <- added
-engine = create_engine(DB_URL, pool_pre_ping=True)       # <- one global pool
+# DB_URL = os.getenv("SUPABASE_DB_URL")                    # <- added
+url = URL.create(
+    "postgresql+psycopg",
+    username="postgres",
+    password=os.environ["DB_PWD"],            # raw, no %40 needed here
+    host="db.zarvhkumrowezffrdqgu.supabase.co",
+    port=5432,
+    database="postgres",
+    query={
+        "hostaddr": "35.154.101.123",        # ← the IPv4 you just looked up
+        "sslmode": "require",                # Supabase always needs SSL
+    },
+)
+engine = create_engine(url, pool_pre_ping=True)
+# engine = create_engine(DB_URL, pool_pre_ping=True)       # <- one global pool
 
 
 # ─────────────────────────────────────────────────────────────────────────────
