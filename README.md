@@ -65,7 +65,7 @@ Full API lives in [`sherlock_protocol.py`](./sherlock_protocol.py).
 | **Debuggability**  | ✅ Deterministic helper set, easy to unit‑test           | ❌ Harder to trace arbitrary code the model writes |
 | **Learning curve** | ⚠️ Need to learn helper vocabulary                      | ✅ Natural language only                           |
 
-## 5. When might you *not* use Sherlock? When might you *not* use Sherlock?
+## 5. When might you *not* use Sherlock?
 
 * Exploratory data‑science sessions where raw inspection is *required*.
 * Tiny, completely non‑sensitive datasets where privacy is not a concern.
