@@ -175,7 +175,7 @@ if "streamlit" in sys.modules and hasattr(st, "sidebar"):
     st.info(
     "🔍 **Powered by the Sherlock Protocol** — our privacy‑first, blind‑query "
     "engine lets the AI analyse your data without ever seeing a single row. "
-    "[Learn&nbsp;more](https://github.com/your-org/talk2table/blob/main/README.md)"
+    "[Learn&nbsp;more](https://github.com/Subhadeepthegreat/Talk2Table/blob/main/README.md)"
 )
     for fname, schema_val in ss["schemas"].items():
         st.expander(f"📑 Schema: {fname}").json(schema_val, expanded=False)
