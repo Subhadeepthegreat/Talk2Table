@@ -4,7 +4,7 @@ import streamlit as st
 
 load_dotenv()
 
-MODEL_NAME = os.getenv("OPENAI_MODEL", "o4-mini-2025-04-16")
+MODEL_NAME = "o4-mini-2025-04-16"
 OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
 SQL_ROW_LIMIT = 5_000
 EXECUTION_TIMEOUT_S = 300
