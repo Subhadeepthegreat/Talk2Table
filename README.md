@@ -72,15 +72,6 @@ Full API lives in [`sherlock_protocol.py`](./sherlock_protocol.py).
 
 For 90 % of BI & report queries, Sherlock hits the sweet spot of **speed, safety, and transparency**.
 
-## 6. Getting started
-
-```bash
-pip install -r requirements.txt  # includes rapidfuzz, pandas, streamlit
-python app.py                    # run Talk2Table
-```
-
-The UI banner shows *“Powered by the Sherlock Protocol”*; click **Learn more** to come back to this doc.
-
 ---
 
 > *"You know my methods.  Apply them."* — **Sherlock Holmes to Dr. Watson**
