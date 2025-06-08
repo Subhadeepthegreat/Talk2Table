@@ -171,7 +171,12 @@ if "streamlit" in sys.modules and hasattr(st, "sidebar"):
                     ss[confirm_delete_key] = True
                     st.rerun()
 
-    st.warning("⚠️ **Performance Mode:** Pandas operations are currently running directly for faster results. This means standard timeout/sandboxing is bypassed for these operations. Please be mindful of the queries.")
+    # st.warning("⚠️ **Performance Mode:** Pandas operations are currently running directly for faster results. This means standard timeout/sandboxing is bypassed for these operations. Please be mindful of the queries.")
+    st.info(
+    "🔍 **Powered by the Sherlock Protocol** — our privacy‑first, blind‑query "
+    "engine lets the AI analyse your data without ever seeing a single row. "
+    "[Learn&nbsp;more](https://github.com/your-org/talk2table/blob/main/README.md)"
+)
     for fname, schema_val in ss["schemas"].items():
         st.expander(f"📑 Schema: {fname}").json(schema_val, expanded=False)
 
