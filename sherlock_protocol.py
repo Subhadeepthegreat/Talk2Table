@@ -136,7 +136,9 @@ def safe_agg(
     """Aggregate *df* safely, returning a new DataFrame."""
     if group_by:
         return df.groupby(group_by).agg(metrics).reset_index()
-    return df.agg(metrics).to_frame().T
+    res = df.agg(metrics)
+    return res if isinstance(res, pd.DataFrame) else res.to_frame().T
+    # return df.agg(metrics).to_frame().T
 
 
 # ── universal normalisation helpers ──────────────────────────────────
