@@ -112,7 +112,7 @@ class ADKAgent:
             return up, 0.0
         messages = ([{"role": "system", "content": p} for p in sys_prompts] + [{"role": "user", "content": up}])
         try:
-            r = openai.chat.completions.create(model=self.model_name, messages=messages, max_tokens=mt)
+            r = openai.chat.completions.create(model=self.model_name, messages=messages, max_completion_tokens=mt)
             cost = (r.usage.total_tokens if r.usage else 0) * 0.00001
             return r.choices[0].message.content.strip(), cost
         except Exception as e:
