@@ -46,7 +46,6 @@ langchain==0.3.26
 langchain-community==0.3.26
 langchain-core==0.3.66
 langchain-experimental==0.3.4
-langchain-ibm==0.1.12
 langchain-openai==0.3.17
 langchain-text-splitters==0.3.16
 langgraph>=0.2.20,<0.3
