@@ -45,8 +45,8 @@ kiwisolver==1.4.5
 langchain==0.3.16
 langchain-community==0.3.16
 langchain-core==0.3.59
-langchain-experimental==0.3.16
-langchain-ibm==0.3.16
+langchain-experimental==0.0.64
+langchain-ibm==0.1.12
 langchain-openai==0.3.17
 langchain-text-splitters==0.3.16
 langgraph==0.4.8
