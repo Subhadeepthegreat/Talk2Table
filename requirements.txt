@@ -47,7 +47,12 @@ langchain-community==0.2.12
 langchain-core==0.2.30
 langchain-experimental==0.0.64
 langchain-ibm==0.1.12
+langchain-openai==0.3.17
 langchain-text-splitters==0.2.2
+langgraph==0.4.8
+langgraph-checkpoint==2.1.0
+langgraph-prebuilt==0.2.2
+langgraph-sdk==0.1.70
 langsmith==0.1.99
 lomond==0.3.3
 markdown-it-py==3.0.0
