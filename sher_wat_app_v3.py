@@ -609,7 +609,7 @@ def display_message_with_plots(message, message_index, agent=None):
 # Sidebar
 with st.sidebar:
     # Logo placeholder
-    st.image("D:\WORK\PANDASAI\ChatGPT Image Apr 29, 2025, 01_12_56 PM.png", width=200, caption="Experimental")
+    st.image("ChatGPT Image Apr 29, 2025, 01_12_56 PM.png", width=200, caption="Experimental")
     st.markdown("---")
     
     # File uploader
