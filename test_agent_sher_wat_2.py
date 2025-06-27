@@ -22,6 +22,7 @@ from langgraph.graph import StateGraph, START
 from langgraph.graph.message import add_messages
 import matplotlib.pyplot as plt
 import seaborn as sns
+from config import MODEL_NAME, OPENAI_API_KEY
 
 # =============================================================================
 # SHARED COMPONENTS
@@ -520,7 +521,8 @@ def create_python_assistant_node(sherlock_mode: bool = True):
             msgs.insert(0, SystemMessage(content=sys_prompt))
         
         try:
-            llm = ChatOpenAI(model="gpt-4o-mini")
+            # llm = ChatOpenAI(model="gpt-4o-mini")
+            llm = ChatOpenAI(model=MODEL_NAME, api_key=OPENAI_API_KEY)
             assistant_reply = llm.invoke(msgs)
             
             # Initialize output variables
@@ -663,7 +665,8 @@ def create_sql_assistant_node(sherlock_mode: bool = True):
             msgs.insert(0, SystemMessage(content=sys_prompt))
         
         try:
-            llm = ChatOpenAI(model="gpt-4o-mini")
+            # llm = ChatOpenAI(model="gpt-4o-mini")
+            llm = ChatOpenAI(model=MODEL_NAME, api_key=OPENAI_API_KEY)
             assistant_reply = llm.invoke(msgs)
             
             # Initialize output variables
@@ -1956,7 +1959,8 @@ def create_sql_assistant_node_with_integrated_plots(sherlock_mode: bool = True):
             msgs.insert(0, SystemMessage(content=sys_prompt))
         
         try:
-            llm = ChatOpenAI(model="gpt-4o-mini")
+            # llm = ChatOpenAI(model="gpt-4o-mini")
+            llm = ChatOpenAI(model=MODEL_NAME, api_key=OPENAI_API_KEY)
             assistant_reply = llm.invoke(msgs)
             
             # Initialize output variables
@@ -2421,7 +2425,8 @@ def create_sql_assistant_node_with_integrated_plots(sherlock_mode: bool = True):
             msgs.insert(0, SystemMessage(content=sys_prompt))
         
         try:
-            llm = ChatOpenAI(model="gpt-4o-mini")
+            # llm = ChatOpenAI(model="gpt-4o-mini")
+            llm = ChatOpenAI(model=MODEL_NAME, api_key=OPENAI_API_KEY)
             assistant_reply = llm.invoke(msgs)
             
             # Initialize output variables
@@ -3499,7 +3504,8 @@ def create_python_assistant_node_with_plots(sherlock_mode: bool = True):
             msgs.insert(0, SystemMessage(content=sys_prompt))
         
         try:
-            llm = ChatOpenAI(model="gpt-4o-mini")
+            # llm = ChatOpenAI(model="gpt-4o-mini")
+            llm = ChatOpenAI(model=MODEL_NAME, api_key=OPENAI_API_KEY)
             assistant_reply = llm.invoke(msgs)
             
             # Initialize output variables
@@ -4249,7 +4255,8 @@ def create_python_assistant_node_with_plots_fixed(sherlock_mode: bool = True):
             msgs.insert(0, SystemMessage(content=sys_prompt))
         
         try:
-            llm = ChatOpenAI(model="gpt-4o-mini")
+            # llm = ChatOpenAI(model="gpt-4o-mini")
+            llm = ChatOpenAI(model=MODEL_NAME, api_key=OPENAI_API_KEY)
             assistant_reply = llm.invoke(msgs)
             
             # Initialize output variables
