@@ -81,7 +81,7 @@ st.markdown("""
 
 # Initialize session state
 if 'db_engine' not in st.session_state:
-    DB_URL = os.getenv("SUPABASE_DB_URL")
+    DB_URL = st.secrets["SUPABASE_DB_URL"]
     if DB_URL:
         st.session_state.db_engine = create_engine(DB_URL, pool_pre_ping=True)
         # Create tables if they don't exist
