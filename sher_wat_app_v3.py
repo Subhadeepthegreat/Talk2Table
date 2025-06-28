@@ -815,6 +815,12 @@ if st.session_state.uploaded_data is not None:
         st.info("👈 Please create a new chat session to start")
         
 else:
+    # Show notification at app startup
+    st.info("""
+    📱 **For the best experience:** Go to the three dots menu (⋮) in the top right → Settings → Theme → Dark mode
+    
+    This app is optimized for dark mode!
+    """)
     # No data uploaded
     st.markdown("""
     # 🔍 Talk2Table
